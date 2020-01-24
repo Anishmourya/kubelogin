@@ -1,0 +1,29 @@
+name: acceptance-test
+on: [push]
+jobs:
+  build:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      # https://kind.sigs.k8s.io/docs/user/quick-start/
+      - name: Install kind
+        run: |
+          mkdir -p ~/bin
+          curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.7.0/kind-$(uname)-amd64
+          chmod +x ./kind
+          mv ./kind ~/bin/kind
+      - name: Install certutil
+        run: |
+          sudo apt install -y libnss3-tools
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+        id: go
+      - uses: actions/checkout@v1
+      - run: make
+      - run: echo '127.0.0.1 server.dex.svc.cluster.local' | sudo tee -a /etc/hosts
+      - run: PATH=~/bin:$PATH make -C acceptance_test create-cluster
+      - run: PATH=~/bin:$PATH make -C acceptance_test deploy
+      - run: PATH=~/bin:$PATH make -C acceptance_test import-ca-certificate
+      - run: PATH=~/bin:$PATH make -C acceptance_test test
+      - run: PATH=~/bin:$PATH make -C acceptance_test delete-cluster
